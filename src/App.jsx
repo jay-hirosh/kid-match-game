@@ -40,10 +40,26 @@ const playSound = (type) => {
 
 const speakPhrase = (number) => {
   if ('speechSynthesis' in window) {
-    window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(`Please select number ${number}`);
     utterance.rate = 0.9; // slightly slower
     utterance.pitch = 1.2; // slightly higher pitch
+    const voices = window.speechSynthesis.getVoices();
+    if (voices.length > 0) {
+      utterance.voice = voices.find(v => v.lang.includes('en')) || voices[0];
+    }
+    window.speechSynthesis.speak(utterance);
+  }
+};
+
+const speakGenius = () => {
+  if ('speechSynthesis' in window) {
+    const utterance = new SpeechSynthesisUtterance("You are a genius!");
+    utterance.rate = 1.0; 
+    utterance.pitch = 1.2; 
+    const voices = window.speechSynthesis.getVoices();
+    if (voices.length > 0) {
+      utterance.voice = voices.find(v => v.lang.includes('en')) || voices[0];
+    }
     window.speechSynthesis.speak(utterance);
   }
 };
@@ -52,18 +68,18 @@ function App() {
   const [round, setRound] = useState(null);
   const [wrongAnswers, setWrongAnswers] = useState(new Set());
   const [isCelebrating, setIsCelebrating] = useState(false);
+  const [showFlashScreen, setShowFlashScreen] = useState(false);
 
   const startNewRound = useCallback(() => {
-    // Generate numbers 1-10, with 6 options
-    const newRound = generateRound(10, 6);
+    // Generate numbers 1-10, with 3 options
+    const newRound = generateRound(10, 3);
     setRound(newRound);
     setWrongAnswers(new Set());
     setIsCelebrating(false);
+    setShowFlashScreen(false);
 
-    // Speak the new target phrase, slight delay for UI to update
-    setTimeout(() => {
-      speakPhrase(newRound.targetNumber);
-    }, 100);
+    // Speak the new target phrase synchronously to avoid iOS auto-play blocking
+    speakPhrase(newRound.targetNumber);
   }, []);
 
   useEffect(() => {
@@ -81,7 +97,9 @@ function App() {
     if (number === round.targetNumber) {
       // Success!
       setIsCelebrating(true);
+      setShowFlashScreen(true);
       playSound('success');
+      speakGenius();
       
       confetti({
         particleCount: 150,
@@ -93,7 +111,7 @@ function App() {
       // Wait a bit, then start a new round
       setTimeout(() => {
         startNewRound();
-      }, 2000);
+      }, 3000);
     } else {
       // Wrong answer
       playSound('error');
@@ -133,7 +151,10 @@ function App() {
           Please select number
         </h1>
         <div 
-          onClick={() => speakPhrase(round.targetNumber)}
+          onClick={() => {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            speakPhrase(round.targetNumber);
+          }}
           className={isCelebrating ? 'animate-bounce' : ''}
           style={{ 
             fontSize: '8rem', 
@@ -141,11 +162,19 @@ function App() {
             lineHeight: '1',
             color: '#FF6B6B',
             textShadow: '4px 4px 0px #FFE66D, 8px 8px 0px rgba(0,0,0,0.1)',
-            cursor: 'pointer'
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '20px'
           }}
         >
-          {round.targetNumber}
+          <span>{round.targetNumber}</span>
+          <span style={{ fontSize: '3rem' }}>🔊</span>
         </div>
+        <p style={{ color: '#666', marginTop: '10px', fontSize: '1.2rem' }}>
+          Tap the number to hear it!
+        </p>
       </div>
 
       <div style={{
@@ -165,6 +194,25 @@ function App() {
           />
         ))}
       </div>
+
+      {showFlashScreen && (
+        <div style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(255, 255, 255, 0.95)',
+          zIndex: 9999,
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'center',
+          alignItems: 'center',
+          animation: 'popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards'
+        }}>
+          <div style={{ fontSize: '10rem', animation: 'float 3s ease-in-out infinite' }}>🌟</div>
+          <h1 style={{ fontSize: '5rem', color: '#FF6B6B', margin: 0, textTransform: 'uppercase', textShadow: '4px 4px 0px #FFE66D, 8px 8px 0px rgba(0,0,0,0.1)' }}>
+            Genius!
+          </h1>
+        </div>
+      )}
 
     </div>
   );
