@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import confetti from 'canvas-confetti';
 import { generateRound } from './utils/gameLogic';
-import { AnimalCard } from './components/AnimalCard';
+import { NumberTile } from './components/NumberTile';
 
 // Simple sound effects using Web Audio API
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -38,10 +38,10 @@ const playSound = (type) => {
   }
 };
 
-const speakNumber = (number) => {
+const speakPhrase = (number) => {
   if ('speechSynthesis' in window) {
     window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(number.toString());
+    const utterance = new SpeechSynthesisUtterance(`Please select number ${number}`);
     utterance.rate = 0.9; // slightly slower
     utterance.pitch = 1.2; // slightly higher pitch
     window.speechSynthesis.speak(utterance);
@@ -54,14 +54,15 @@ function App() {
   const [isCelebrating, setIsCelebrating] = useState(false);
 
   const startNewRound = useCallback(() => {
-    const newRound = generateRound(5, 3);
+    // Generate numbers 1-10, with 6 options
+    const newRound = generateRound(10, 6);
     setRound(newRound);
     setWrongAnswers(new Set());
     setIsCelebrating(false);
 
-    // Speak the new target number, slight delay for UI to update
+    // Speak the new target phrase, slight delay for UI to update
     setTimeout(() => {
-      speakNumber(newRound.targetNumber);
+      speakPhrase(newRound.targetNumber);
     }, 100);
   }, []);
 
@@ -69,7 +70,7 @@ function App() {
     startNewRound();
   }, [startNewRound]);
 
-  const handleCardClick = (count) => {
+  const handleTileClick = (number) => {
     if (isCelebrating) return; // Prevent clicks during celebration
 
     // Initialize audio context on first user interaction if needed
@@ -77,7 +78,7 @@ function App() {
       audioCtx.resume();
     }
 
-    if (count === round.targetNumber) {
+    if (number === round.targetNumber) {
       // Success!
       setIsCelebrating(true);
       playSound('success');
@@ -96,13 +97,13 @@ function App() {
     } else {
       // Wrong answer
       playSound('error');
-      setWrongAnswers(prev => new Set(prev).add(count));
+      setWrongAnswers(prev => new Set(prev).add(number));
       
       // Remove the shake class after animation completes so it can be triggered again
       setTimeout(() => {
         setWrongAnswers(prev => {
           const newSet = new Set(prev);
-          newSet.delete(count);
+          newSet.delete(number);
           return newSet;
         });
       }, 500);
@@ -129,10 +130,10 @@ function App() {
           textTransform: 'uppercase',
           letterSpacing: '2px'
         }}>
-          Count the {round.animal}
+          Please select number
         </h1>
         <div 
-          onClick={() => speakNumber(round.targetNumber)}
+          onClick={() => speakPhrase(round.targetNumber)}
           className={isCelebrating ? 'animate-bounce' : ''}
           style={{ 
             fontSize: '8rem', 
@@ -148,22 +149,19 @@ function App() {
       </div>
 
       <div style={{
-        display: 'flex',
-        flexDirection: 'row',
-        justifyContent: 'center',
-        alignItems: 'stretch',
+        display: 'grid',
+        gridTemplateColumns: 'repeat(3, 1fr)',
         gap: '20px',
         width: '100%',
         maxWidth: '800px',
         padding: '20px'
       }}>
-        {round.options.map((optionCount, index) => (
-          <AnimalCard 
-            key={`${round.animal}-${index}`} 
-            count={optionCount} 
-            animal={round.animal}
-            onClick={handleCardClick}
-            isWrong={wrongAnswers.has(optionCount)}
+        {round.options.map((optionNumber, index) => (
+          <NumberTile 
+            key={`tile-${index}`} 
+            number={optionNumber} 
+            onClick={handleTileClick}
+            isWrong={wrongAnswers.has(optionNumber)}
           />
         ))}
       </div>
